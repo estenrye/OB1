@@ -1,0 +1,93 @@
+services:
+  postgres:
+    build:
+      context: ./deploy/postgres
+      dockerfile: Dockerfile
+    container_name: open-brain-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-openbrain}
+      POSTGRES_USER: ${POSTGRES_USER:-openbrain}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-openbrain_password}
+    command:
+      - postgres
+      - -c
+      - hba_file=/var/lib/postgresql/pg_hba.conf
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-openbrain} -d ${POSTGRES_DB:-openbrain}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata18:/var/lib/postgresql
+      - ./deploy/postgres/pg_hba.conf:/var/lib/postgresql/pg_hba.conf:ro
+      - ./deploy/postgres/init.sql:/docker-entrypoint-initdb.d/001-init.sql:ro
+
+  db-init:
+    image: postgres:18.3
+    container_name: open-brain-db-init
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD:-openbrain_password}
+    command:
+      - psql
+      - -h
+      - postgres
+      - -U
+      - ${POSTGRES_USER:-openbrain}
+      - -d
+      - ${POSTGRES_DB:-openbrain}
+      - -v
+      - ON_ERROR_STOP=1
+      - -f
+      - /migrations/init.sql
+    volumes:
+      - ./deploy/postgres/init.sql:/migrations/init.sql:ro
+
+  open-brain-mcp:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+      args:
+        DENO_CONFIG: deno.local-postgres.json
+        SERVER_ENTRY: index.local-postgres.ts
+    container_name: open-brain-mcp
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
+    ports:
+      - "8000:8000"
+    environment:
+      PORT: "8000"
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: ${POSTGRES_DB:-openbrain}
+      DB_USER: ${POSTGRES_USER:-openbrain}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-openbrain_password}
+      DB_SSL_MODE: disable
+      MCP_ACCESS_KEY: ${MCP_ACCESS_KEY}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+      OPENROUTER_BASE: ${OPENROUTER_BASE:-https://openrouter.ai/api/v1}
+      OPENROUTER_EMBEDDING_MODEL: ${OPENROUTER_EMBEDDING_MODEL:-openai/text-embedding-3-small}
+      OPENROUTER_CHAT_MODEL: ${OPENROUTER_CHAT_MODEL:-openai/gpt-4o-mini}
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: open-brain-cloudflared
+    restart: unless-stopped
+    depends_on:
+      - open-brain-mcp
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+    networks:
+      - default
+
+volumes:
+  pgdata18:

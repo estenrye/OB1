@@ -23,7 +23,34 @@ Never built an Open Brain? Start here:
 3. **[Companion Prompts](docs/02-companion-prompts.md)** — Five prompts that help you migrate your memories, discover use cases, and build the capture habit.
 4. **Then pick Extension 1** and start building.
 
-**If you hit a wall:** We built a [FAQ](docs/03-faq.md) that covers the most common questions and gotchas. And if you need real-time help, we created dedicated AI assistants that know this system inside and out: a [Claude Skill](https://www.notion.so/product-templates/Open-Brain-Companion-Claude-Skill-31a5a2ccb526802797caeb37df3ba3cb?source=copy_link), a [ChatGPT Custom GPT](https://chatgpt.com/g/g-69a892b6a7708191b00e48ff655d5597-nate-jones-open-brain-assistant), and a [Gemini GEM](https://gemini.google.com/gem/1fDsAENjhdku-3RufY7ystbS1Md8MtDCg?usp=sharing). Use whichever one matches the AI tool you already use.
+**If you hit a wall:** We built a [FAQ](docs/03-faq.md) that covers the most common questions and gotchas.
+
+## Running Locally with Docker
+
+A self-hosted alternative to Supabase is included for local development. It runs the MCP server against a local PostgreSQL 18 + pgvector container using username/password auth.
+
+**Prerequisites:** Docker with Compose support.
+
+```bash
+# 1. Copy and fill in credentials
+cp .env.example .env   # set MCP_ACCESS_KEY, OPENROUTER_API_KEY, POSTGRES_PASSWORD
+
+# 2. Build and start
+docker compose -f docker-compose.local.yml up --build -d
+
+# 3. Verify the MCP endpoint
+curl -s "http://localhost:8000?key=<your-MCP_ACCESS_KEY>" \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
+```
+
+The local stack uses:
+- [`docker-compose.local.yml`](docker-compose.local.yml) — service definitions
+- [`deploy/postgres/Dockerfile`](deploy/postgres/Dockerfile) — PostgreSQL 18.3 with pgvector
+- [`deploy/postgres/init.sql`](deploy/postgres/init.sql) — schema, indexes, and functions
+- [`server/index.local-postgres.ts`](server/index.local-postgres.ts) — direct-Postgres MCP runtime
+
+The Supabase-based deployment (default) is still documented in the [Setup Guide](docs/01-getting-started.md). And if you need real-time help, we created dedicated AI assistants that know this system inside and out: a [Claude Skill](https://www.notion.so/product-templates/Open-Brain-Companion-Claude-Skill-31a5a2ccb526802797caeb37df3ba3cb?source=copy_link), a [ChatGPT Custom GPT](https://chatgpt.com/g/g-69a892b6a7708191b00e48ff655d5597-nate-jones-open-brain-assistant), and a [Gemini GEM](https://gemini.google.com/gem/1fDsAENjhdku-3RufY7ystbS1Md8MtDCg?usp=sharing). Use whichever one matches the AI tool you already use.
 
 ## Extensions — The Learning Path
 

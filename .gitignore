@@ -11,6 +11,7 @@ credentials.json
 token.json
 gmail-sync-log.json
 sync-log.json
+.vscode/mcp.json
 
 # Build artifacts
 deno.lock
